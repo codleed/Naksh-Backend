@@ -50,14 +50,19 @@ enum ReactionType {
 
 // Models
 model User {
-  id              String    @id @default(uuid())
+  id              String    @id // Clerk user ID (no default uuid, will be set from Clerk)
+  clerkId         String    @unique @map("clerk_id") // Clerk user ID for reference
   username        String    @unique
   displayName     String?   @map("display_name")
+  firstName       String?   @map("first_name")
+  lastName        String?   @map("last_name")
   email           String    @unique
   avatarUrl       String?   @map("avatar_url")
   bio             String?
   isAnonymous     Boolean   @default(false) @map("is_anonymous")
   suspendedUntil  DateTime? @map("suspended_until")
+  lastSignInAt    DateTime? @map("last_sign_in_at")
+  emailVerified   Boolean   @default(false) @map("email_verified")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
