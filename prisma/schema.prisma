@@ -1,0 +1,254 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum Visibility {
+  PUBLIC
+  PRIVATE
+  FOLLOWERS
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum EntityType {
+  POST
+  COMMENT
+  USER
+}
+
+enum ModerationStatus {
+  PENDING
+  VALID
+  INVALID
+}
+
+enum Platform {
+  ios
+  android
+}
+
+enum ReactionType {
+  LIKE
+  LOL
+  SAD
+  LOVE
+  ANGRY
+  WOW
+}
+
+// Models
+model User {
+  id              String    @id @default(uuid())
+  username        String    @unique
+  displayName     String?   @map("display_name")
+  email           String    @unique
+  avatarUrl       String?   @map("avatar_url")
+  bio             String?
+  isAnonymous     Boolean   @default(false) @map("is_anonymous")
+  suspendedUntil  DateTime? @map("suspended_until")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  posts           Post[]
+  comments        Comment[]
+  reactions       Reaction[]
+  moderationFlags ModerationFlag[]
+  deviceTokens    DeviceToken[]
+  messages        Message[]
+  chatMembers     ChatMember[]
+  
+  // Following relationships
+  following       Follow[] @relation("UserFollowing")
+  followers       Follow[] @relation("UserFollowers")
+
+  @@map("users")
+}
+
+model Post {
+  id           String                    @id @default(uuid())
+  authorId     String                    @map("author_id")
+  caption      String?
+  location     Unsupported("geography(Point,4326)")
+  locationName String?                   @map("location_name")
+  visibility   Visibility                @default(PUBLIC)
+  expiresAt    DateTime                  @default(dbgenerated("now() + interval '24 hours'")) @map("expires_at")
+  boostUntil   DateTime?                 @map("boost_until")
+  createdAt    DateTime                  @default(now()) @map("created_at")
+  updatedAt    DateTime                  @updatedAt @map("updated_at")
+  deletedAt    DateTime?                 @map("deleted_at")
+
+  // Relations
+  author       User                      @relation(fields: [authorId], references: [id])
+  media        PostMedia[]
+  reactions    Reaction[]
+  comments     Comment[]
+  anonymousPost AnonymousPost?
+
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([expiresAt])
+  @@map("posts")
+}
+
+model PostMedia {
+  id       String    @id @default(uuid())
+  postId   String    @map("post_id")
+  mediaUrl String    @map("media_url")
+  type     MediaType @default(IMAGE)
+  ordering Int?
+  duration Int?      // For videos (seconds)
+
+  // Relations
+  post     Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, ordering])
+  @@map("post_media")
+}
+
+model Reaction {
+  postId    String      @map("post_id")
+  userId    String      @map("user_id")
+  type      ReactionType
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  post      Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId, type])
+  @@map("reactions")
+}
+
+model AnonymousPost {
+  postId        String  @id @map("post_id")
+  anonName      String? @map("anon_name")
+  anonAvatarUrl String? @map("anon_avatar_url")
+
+  // Relations
+  post          Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("anonymous_posts")
+}
+
+model Comment {
+  id              String    @id @default(uuid())
+  postId          String    @map("post_id")
+  authorId        String    @map("author_id")
+  parentCommentId String?   @map("parent_comment_id")
+  body            String
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+  editedAt        DateTime? @map("edited_at")
+
+  // Relations
+  post            Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author          User      @relation(fields: [authorId], references: [id])
+  parentComment   Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  replies         Comment[] @relation("CommentReplies")
+
+  @@index([postId, createdAt])
+  @@index([authorId])
+  @@map("comments")
+}
+
+model ModerationFlag {
+  id         String           @id @default(uuid())
+  entityType EntityType       @map("entity_type")
+  entityId   String           @map("entity_id")
+  reporterId String           @map("reporter_id")
+  reason     String?
+  status     ModerationStatus @default(PENDING)
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  reporter   User             @relation(fields: [reporterId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([status])
+  @@map("moderation_flags")
+}
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  platform  Platform?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+model Follow {
+  followerId String   @map("follower_id")
+  followeeId String   @map("followee_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  follower   User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  followee   User     @relation("UserFollowers", fields: [followeeId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followeeId])
+  @@map("followers")
+}
+
+model Chat {
+  id            String   @id @default(uuid())
+  isGroup       Boolean  @default(false) @map("is_group")
+  title         String?
+  lastMessageAt DateTime? @map("last_message_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  messages      Message[]
+  members       ChatMember[]
+
+  @@map("chats")
+}
+
+model Message {
+  id          String    @id @default(uuid())
+  senderId    String    @map("sender_id")
+  chatId      String    @map("chat_id")
+  body        String
+  createdAt   DateTime  @default(now()) @map("created_at")
+  deliveredAt DateTime? @map("delivered_at")
+  readAt      DateTime? @map("read_at")
+
+  // Relations
+  sender      User      @relation(fields: [senderId], references: [id])
+  chat        Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId, createdAt])
+  @@index([senderId])
+  @@map("messages")
+}
+
+model ChatMember {
+  memberId String @map("member_id")
+  chatId   String @map("chat_id")
+
+  // Relations
+  member   User   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  chat     Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@id([memberId, chatId])
+  @@map("chat_members")
+}
