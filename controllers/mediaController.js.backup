@@ -7,8 +7,6 @@
  * Get all media for a specific post
  * GET /api/posts/:postId/media
  */
-const { asyncHandler } = require('../utils/asyncHandler');
-const { ValidationError, NotFoundError, ConflictError, AuthenticationError } = require('../utils/errors');
 const getPostMedia = async (req, res) => {
   try {
     const { postId } = req.params;
@@ -28,7 +26,7 @@ const getPostMedia = async (req, res) => {
     });
 
     if (!post) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     // Build where clause
@@ -88,7 +86,7 @@ const getMediaById = async (req, res) => {
     });
 
     if (!media) {
-      throw new NotFoundError('Media');
+      return res.status(404).json({ error: 'Media not found' });
     }
 
     res.json(media);
@@ -109,16 +107,16 @@ const addMediaToPost = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     if (!mediaUrl) {
-      throw new ValidationError('Media URL is required');
+      return res.status(400).json({ error: 'Media URL is required' });
     }
 
     // Validate media type
     if (!['IMAGE', 'VIDEO'].includes(type.toUpperCase())) {
-      throw new ValidationError('Media type must be IMAGE or VIDEO');
+      return res.status(400).json({ error: 'Media type must be IMAGE or VIDEO' });
     }
 
     // Check if post exists and user owns it
@@ -134,7 +132,7 @@ const addMediaToPost = async (req, res) => {
     });
 
     if (!post) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     if (post.authorId !== userId) {
@@ -154,7 +152,7 @@ const addMediaToPost = async (req, res) => {
 
     // Validate duration for videos
     if (type.toUpperCase() === 'VIDEO' && duration !== undefined && duration <= 0) {
-      throw new ValidationError('Video duration must be positive');
+      return res.status(400).json({ error: 'Video duration must be positive' });
     }
 
     const media = await req.prisma.postMedia.create({
@@ -203,7 +201,7 @@ const updateMedia = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if media exists and user owns the post
@@ -220,7 +218,7 @@ const updateMedia = async (req, res) => {
     });
 
     if (!existingMedia) {
-      throw new NotFoundError('Media');
+      return res.status(404).json({ error: 'Media not found' });
     }
 
     if (existingMedia.post.authorId !== userId) {
@@ -229,12 +227,12 @@ const updateMedia = async (req, res) => {
 
     // Validate media type if provided
     if (type && !['IMAGE', 'VIDEO'].includes(type.toUpperCase())) {
-      throw new ValidationError('Media type must be IMAGE or VIDEO');
+      return res.status(400).json({ error: 'Media type must be IMAGE or VIDEO' });
     }
 
     // Validate duration for videos
     if (duration !== undefined && duration <= 0) {
-      throw new ValidationError('Video duration must be positive');
+      return res.status(400).json({ error: 'Video duration must be positive' });
     }
 
     const media = await req.prisma.postMedia.update({
@@ -282,7 +280,7 @@ const deleteMedia = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if media exists and user owns the post
@@ -299,7 +297,7 @@ const deleteMedia = async (req, res) => {
     });
 
     if (!existingMedia) {
-      throw new NotFoundError('Media');
+      return res.status(404).json({ error: 'Media not found' });
     }
 
     if (existingMedia.post.authorId !== userId) {
@@ -328,11 +326,11 @@ const reorderPostMedia = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     if (!mediaOrder || !Array.isArray(mediaOrder)) {
-      throw new ValidationError('mediaOrder array is required');
+      return res.status(400).json({ error: 'mediaOrder array is required' });
     }
 
     // Check if post exists and user owns it
@@ -348,7 +346,7 @@ const reorderPostMedia = async (req, res) => {
     });
 
     if (!post) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     if (post.authorId !== userId) {
@@ -366,7 +364,7 @@ const reorderPostMedia = async (req, res) => {
     });
 
     if (existingMedia.length !== mediaIds.length) {
-      throw new ValidationError('Some media items do not belong to this post');
+      return res.status(400).json({ error: 'Some media items do not belong to this post' });
     }
 
     // Update ordering for each media item
@@ -406,15 +404,15 @@ const bulkAddMediaToPost = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     if (!mediaItems || !Array.isArray(mediaItems) || mediaItems.length === 0) {
-      throw new ValidationError('mediaItems array is required');
+      return res.status(400).json({ error: 'mediaItems array is required' });
     }
 
     if (mediaItems.length > 10) {
-      throw new ValidationError('Cannot add more than 10 media items at once');
+      return res.status(400).json({ error: 'Cannot add more than 10 media items at once' });
     }
 
     // Check if post exists and user owns it
@@ -430,7 +428,7 @@ const bulkAddMediaToPost = async (req, res) => {
     });
 
     if (!post) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     if (post.authorId !== userId) {
@@ -440,13 +438,13 @@ const bulkAddMediaToPost = async (req, res) => {
     // Validate all media items
     for (const item of mediaItems) {
       if (!item.mediaUrl) {
-        throw new ValidationError('All media items must have mediaUrl');
+        return res.status(400).json({ error: 'All media items must have mediaUrl' });
       }
       if (item.type && !['IMAGE', 'VIDEO'].includes(item.type.toUpperCase())) {
-        throw new ValidationError('Media type must be IMAGE or VIDEO');
+        return res.status(400).json({ error: 'Media type must be IMAGE or VIDEO' });
       }
       if (item.duration !== undefined && item.duration <= 0) {
-        throw new ValidationError('Video duration must be positive');
+        return res.status(400).json({ error: 'Video duration must be positive' });
       }
     }
 
@@ -523,7 +521,7 @@ const getPostMediaStats = async (req, res) => {
     });
 
     if (!post) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     const [totalMedia, imageCount, videoCount, totalDuration] = await Promise.all([
@@ -574,7 +572,7 @@ const getUserMedia = async (req, res) => {
     });
 
     if (!user) {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
 
     const where = {

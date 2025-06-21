@@ -7,20 +7,18 @@
  * Follow a user
  * POST /api/users/:userId/follow
  */
-const { asyncHandler } = require('../utils/asyncHandler');
-const { ValidationError, NotFoundError, ConflictError, AuthenticationError } = require('../utils/errors');
 const followUser = async (req, res) => {
   try {
     const { userId } = req.params; // User to follow (followee)
     const followerId = req.user?.id; // Current user (follower)
 
     if (!followerId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Prevent self-following
     if (followerId === userId) {
-      throw new ValidationError('Cannot follow yourself');
+      return res.status(400).json({ error: 'Cannot follow yourself' });
     }
 
     // Check if the user to follow exists
@@ -35,7 +33,7 @@ const followUser = async (req, res) => {
     });
 
     if (!userToFollow) {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
 
     // Check if already following
@@ -49,7 +47,7 @@ const followUser = async (req, res) => {
     });
 
     if (existingFollow) {
-      throw new ConflictError('Already following this user');
+      return res.status(409).json({ error: 'Already following this user' });
     }
 
     // Create follow relationship
@@ -97,7 +95,7 @@ const unfollowUser = async (req, res) => {
     const followerId = req.user?.id; // Current user (follower)
 
     if (!followerId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if follow relationship exists
@@ -111,7 +109,7 @@ const unfollowUser = async (req, res) => {
     });
 
     if (!existingFollow) {
-      throw new NotFoundError('Not following this user');
+      return res.status(404).json({ error: 'Not following this user' });
     }
 
     // Remove follow relationship
@@ -148,7 +146,7 @@ const getUserFollowers = async (req, res) => {
     });
 
     if (!user) {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
 
     // Build search filter
@@ -232,7 +230,7 @@ const getUserFollowing = async (req, res) => {
     });
 
     if (!user) {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
 
     // Build search filter
@@ -309,7 +307,7 @@ const getFollowStatus = async (req, res) => {
     const currentUserId = req.user?.id;
 
     if (!currentUserId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if current user follows the specified user
@@ -356,11 +354,11 @@ const getMutualFollowers = async (req, res) => {
     const skip = (page - 1) * limit;
 
     if (!currentUserId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     if (currentUserId === userId) {
-      throw new ValidationError('Cannot get mutual followers with yourself');
+      return res.status(400).json({ error: 'Cannot get mutual followers with yourself' });
     }
 
     // Check if target user exists
@@ -370,7 +368,7 @@ const getMutualFollowers = async (req, res) => {
     });
 
     if (!targetUser) {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
 
     // Get users who follow both current user and target user
@@ -449,7 +447,7 @@ const getSuggestedUsers = async (req, res) => {
     const { limit = 10 } = req.query;
 
     if (!currentUserId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Get users that current user is not following
@@ -535,22 +533,22 @@ const bulkFollowUsers = async (req, res) => {
     const followerId = req.user?.id;
 
     if (!followerId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
-      throw new ValidationError('userIds array is required');
+      return res.status(400).json({ error: 'userIds array is required' });
     }
 
     if (userIds.length > 50) {
-      throw new ValidationError('Cannot follow more than 50 users at once');
+      return res.status(400).json({ error: 'Cannot follow more than 50 users at once' });
     }
 
     // Remove current user from the list and duplicates
     const validUserIds = [...new Set(userIds.filter(id => id !== followerId))];
 
     if (validUserIds.length === 0) {
-      throw new ValidationError('No valid users to follow');
+      return res.status(400).json({ error: 'No valid users to follow' });
     }
 
     // Check which users exist
@@ -574,7 +572,7 @@ const bulkFollowUsers = async (req, res) => {
     const usersToFollow = existingUserIds.filter(id => !alreadyFollowedIds.includes(id));
 
     if (usersToFollow.length === 0) {
-      throw new ConflictError('Already following all specified users');
+      return res.status(409).json({ error: 'Already following all specified users' });
     }
 
     // Create follow relationships

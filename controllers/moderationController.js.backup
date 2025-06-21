@@ -7,25 +7,23 @@
  * Report content (post, comment, or user)
  * POST /api/moderation/report
  */
-const { asyncHandler } = require('../utils/asyncHandler');
-const { ValidationError, NotFoundError, ConflictError, AuthenticationError } = require('../utils/errors');
 const reportContent = async (req, res) => {
   try {
     const { entityType, entityId, reason } = req.body;
     const reporterId = req.user?.id;
 
     if (!reporterId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Validate entity type
     const validEntityTypes = ['POST', 'COMMENT', 'USER'];
     if (!entityType || !validEntityTypes.includes(entityType.toUpperCase())) {
-      throw new ValidationError('Valid entity type is required (POST, COMMENT, USER)');
+      return res.status(400).json({ error: 'Valid entity type is required (POST, COMMENT, USER)' });
     }
 
     if (!entityId) {
-      throw new ValidationError('Entity ID is required');
+      return res.status(400).json({ error: 'Entity ID is required' });
     }
 
     // Verify the entity exists based on type
@@ -78,7 +76,7 @@ const reportContent = async (req, res) => {
 
     // Prevent users from reporting their own content
     if (entityData && entityData.authorId === reporterId) {
-      throw new ValidationError('Cannot report your own content');
+      return res.status(400).json({ error: 'Cannot report your own content' });
     }
 
     // Create moderation flag
@@ -133,7 +131,7 @@ const getModerationFlags = async (req, res) => {
     if (status) {
       const validStatuses = ['PENDING', 'VALID', 'INVALID'];
       if (!validStatuses.includes(status.toUpperCase())) {
-        throw new ValidationError('Invalid status');
+        return res.status(400).json({ error: 'Invalid status' });
       }
       where.status = status.toUpperCase();
     }
@@ -141,7 +139,7 @@ const getModerationFlags = async (req, res) => {
     if (entityType) {
       const validEntityTypes = ['POST', 'COMMENT', 'USER'];
       if (!validEntityTypes.includes(entityType.toUpperCase())) {
-        throw new ValidationError('Invalid entity type');
+        return res.status(400).json({ error: 'Invalid entity type' });
       }
       where.entityType = entityType.toUpperCase();
     }
@@ -151,7 +149,7 @@ const getModerationFlags = async (req, res) => {
     const validSortOrders = ['asc', 'desc'];
     
     if (!validSortFields.includes(sortBy) || !validSortOrders.includes(sortOrder.toLowerCase())) {
-      throw new ValidationError('Invalid sort parameters');
+      return res.status(400).json({ error: 'Invalid sort parameters' });
     }
 
     const orderBy = { [sortBy]: sortOrder.toLowerCase() };
@@ -280,7 +278,7 @@ const getModerationFlagById = async (req, res) => {
     });
 
     if (!flag) {
-      throw new NotFoundError('Moderation flag');
+      return res.status(404).json({ error: 'Moderation flag not found' });
     }
 
     // Get entity data
@@ -378,7 +376,7 @@ const updateModerationFlag = async (req, res) => {
     // Validate status
     const validStatuses = ['PENDING', 'VALID', 'INVALID'];
     if (!status || !validStatuses.includes(status.toUpperCase())) {
-      throw new ValidationError('Valid status is required (PENDING, VALID, INVALID)');
+      return res.status(400).json({ error: 'Valid status is required (PENDING, VALID, INVALID)' });
     }
 
     const flag = await req.prisma.moderationFlag.findUnique({
@@ -386,7 +384,7 @@ const updateModerationFlag = async (req, res) => {
     });
 
     if (!flag) {
-      throw new NotFoundError('Moderation flag');
+      return res.status(404).json({ error: 'Moderation flag not found' });
     }
 
     const updatedFlag = await req.prisma.moderationFlag.update({
@@ -428,7 +426,7 @@ const deleteContent = async (req, res) => {
     // Validate entity type
     const validEntityTypes = ['POST', 'COMMENT'];
     if (!validEntityTypes.includes(entityType.toUpperCase())) {
-      throw new ValidationError('Invalid entity type (POST, COMMENT only)');
+      return res.status(400).json({ error: 'Invalid entity type (POST, COMMENT only)' });
     }
 
     let deletedEntity = null;
@@ -441,7 +439,7 @@ const deleteContent = async (req, res) => {
         });
 
         if (!post) {
-          throw new NotFoundError('Post or already deleted');
+          return res.status(404).json({ error: 'Post not found or already deleted' });
         }
 
         // Soft delete the post
@@ -458,7 +456,7 @@ const deleteContent = async (req, res) => {
         });
 
         if (!comment) {
-          throw new NotFoundError('Comment or already deleted');
+          return res.status(404).json({ error: 'Comment not found or already deleted' });
         }
 
         // Soft delete the comment
@@ -502,7 +500,7 @@ const suspendUser = async (req, res) => {
     const { duration, reason } = req.body; // duration in hours
 
     if (!duration || duration <= 0) {
-      throw new ValidationError('Valid suspension duration in hours is required');
+      return res.status(400).json({ error: 'Valid suspension duration in hours is required' });
     }
 
     // Check if user exists
@@ -511,7 +509,7 @@ const suspendUser = async (req, res) => {
     });
 
     if (!user) {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
 
     // Calculate suspension end time
@@ -567,7 +565,7 @@ const unsuspendUser = async (req, res) => {
     });
 
     if (!user) {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
 
     const unsuspendedUser = await req.prisma.user.update({
@@ -697,7 +695,7 @@ const getUserReports = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const reports = await req.prisma.moderationFlag.findMany({

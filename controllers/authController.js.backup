@@ -7,8 +7,6 @@
  * Get current user profile
  * GET /api/auth/me
  */
-const { asyncHandler } = require('../utils/asyncHandler');
-const { ValidationError, NotFoundError, ConflictError, AuthenticationError } = require('../utils/errors');
 const getCurrentUser = async (req, res) => {
   try {
     const user = await req.prisma.user.findUnique({
@@ -41,7 +39,7 @@ const getCurrentUser = async (req, res) => {
     });
 
     if (!user) {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
 
     res.json(user);
@@ -70,7 +68,7 @@ const updateProfile = async (req, res) => {
       });
 
       if (existingUser) {
-        throw new ConflictError('Username already taken');
+        return res.status(409).json({ error: 'Username already taken' });
       }
     }
 
@@ -115,7 +113,7 @@ const completeProfile = async (req, res) => {
     const userId = req.auth.userId;
 
     if (!username) {
-      throw new ValidationError('Username is required');
+      return res.status(400).json({ error: 'Username is required' });
     }
 
     // Check username uniqueness
@@ -127,7 +125,7 @@ const completeProfile = async (req, res) => {
     });
 
     if (existingUser) {
-      throw new ConflictError('Username already taken');
+      return res.status(409).json({ error: 'Username already taken' });
     }
 
     const user = await req.prisma.user.update({
@@ -168,7 +166,7 @@ const checkUsername = async (req, res) => {
     const { username } = req.query;
 
     if (!username) {
-      throw new ValidationError('Username is required');
+      return res.status(400).json({ error: 'Username is required' });
     }
 
     const existingUser = await req.prisma.user.findUnique({

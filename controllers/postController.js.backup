@@ -7,8 +7,6 @@
  * Get all posts with pagination, filtering, and search
  * GET /api/posts
  */
-const { asyncHandler } = require('../utils/asyncHandler');
-const { ValidationError, NotFoundError, ConflictError, AuthenticationError } = require('../utils/errors');
 const getAllPosts = async (req, res) => {
   try {
     const { 
@@ -176,7 +174,7 @@ const getPostById = async (req, res) => {
     });
 
     if (!post) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     // Check if post has expired
@@ -211,28 +209,28 @@ const createPost = async (req, res) => {
     const authorId = req.user?.id;
 
     if (!authorId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Validate required fields
     if (!caption && (!media || media.length === 0)) {
-      throw new ValidationError('Post must have either caption or media');
+      return res.status(400).json({ error: 'Post must have either caption or media' });
     }
 
     // Validate visibility enum
     const validVisibilities = ['PUBLIC', 'PRIVATE', 'FOLLOWERS'];
     if (!validVisibilities.includes(visibility)) {
-      throw new ValidationError('Invalid visibility value');
+      return res.status(400).json({ error: 'Invalid visibility value' });
     }
 
     // Validate media array
     if (media && media.length > 0) {
       for (const mediaItem of media) {
         if (!mediaItem.mediaUrl || !mediaItem.type) {
-          throw new ValidationError('Each media item must have mediaUrl and type');
+          return res.status(400).json({ error: 'Each media item must have mediaUrl and type' });
         }
         if (!['IMAGE', 'VIDEO'].includes(mediaItem.type)) {
-          throw new ValidationError('Media type must be IMAGE or VIDEO');
+          return res.status(400).json({ error: 'Media type must be IMAGE or VIDEO' });
         }
       }
     }
@@ -321,7 +319,7 @@ const updatePost = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if post exists and user owns it
@@ -333,7 +331,7 @@ const updatePost = async (req, res) => {
     });
 
     if (!existingPost) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     if (existingPost.authorId !== userId) {
@@ -349,7 +347,7 @@ const updatePost = async (req, res) => {
     if (visibility) {
       const validVisibilities = ['PUBLIC', 'PRIVATE', 'FOLLOWERS'];
       if (!validVisibilities.includes(visibility)) {
-        throw new ValidationError('Invalid visibility value');
+        return res.status(400).json({ error: 'Invalid visibility value' });
       }
     }
 
@@ -403,7 +401,7 @@ const deletePost = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if post exists and user owns it
@@ -415,7 +413,7 @@ const deletePost = async (req, res) => {
     });
 
     if (!existingPost) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     if (existingPost.authorId !== userId) {
@@ -447,7 +445,7 @@ const getNearbyPosts = async (req, res) => {
     const skip = (page - 1) * limit;
 
     if (!latitude || !longitude) {
-      throw new ValidationError('Latitude and longitude are required');
+      return res.status(400).json({ error: 'Latitude and longitude are required' });
     }
 
     // Note: This is a simplified version. For production, you'd want to use PostGIS functions
@@ -603,11 +601,11 @@ const boostPost = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     if (!boostUntil) {
-      throw new ValidationError('boostUntil date is required');
+      return res.status(400).json({ error: 'boostUntil date is required' });
     }
 
     // Check if post exists and user owns it
@@ -619,7 +617,7 @@ const boostPost = async (req, res) => {
     });
 
     if (!existingPost) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     if (existingPost.authorId !== userId) {

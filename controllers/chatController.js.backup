@@ -7,15 +7,13 @@
  * Get chats for a user
  * GET /api/chats
  */
-const { asyncHandler } = require('../utils/asyncHandler');
-const { ValidationError, NotFoundError, ConflictError, AuthenticationError } = require('../utils/errors');
 const getUserChats = async (req, res) => {
   try {
     const { userId, page = 1, limit = 20 } = req.query;
     const skip = (page - 1) * limit;
 
     if (!userId) {
-      throw new ValidationError('User ID is required');
+      return res.status(400).json({ error: 'User ID is required' });
     }
 
     const chats = await req.prisma.chat.findMany({
@@ -90,7 +88,7 @@ const getChatById = async (req, res) => {
     const { userId } = req.query;
 
     if (!userId) {
-      throw new ValidationError('User ID is required');
+      return res.status(400).json({ error: 'User ID is required' });
     }
 
     const chat = await req.prisma.chat.findUnique({
@@ -117,7 +115,7 @@ const getChatById = async (req, res) => {
     });
 
     if (!chat) {
-      throw new NotFoundError('Chat');
+      return res.status(404).json({ error: 'Chat not found' });
     }
 
     // Check if user is a member of this chat
@@ -142,11 +140,15 @@ const createChat = async (req, res) => {
     const { memberIds, isGroup = false, title } = req.body;
 
     if (!memberIds || !Array.isArray(memberIds) || memberIds.length < 2) {
-      throw new ValidationError('At least 2 member IDs are required');
+      return res.status(400).json({ 
+        error: 'At least 2 member IDs are required' 
+      });
     }
 
     if (isGroup && !title) {
-      throw new ValidationError('Title is required for group chats');
+      return res.status(400).json({ 
+        error: 'Title is required for group chats' 
+      });
     }
 
     // For non-group chats, check if chat already exists between these users
@@ -180,7 +182,7 @@ const createChat = async (req, res) => {
     });
 
     if (users.length !== memberIds.length) {
-      throw new ValidationError('One or more users not found');
+      return res.status(400).json({ error: 'One or more users not found' });
     }
 
     const chat = await req.prisma.chat.create({
@@ -224,7 +226,7 @@ const updateChat = async (req, res) => {
     const { title, userId } = req.body;
 
     if (!userId) {
-      throw new ValidationError('User ID is required');
+      return res.status(400).json({ error: 'User ID is required' });
     }
 
     // Check if user is a member of this chat
@@ -265,7 +267,7 @@ const updateChat = async (req, res) => {
     res.json(chat);
   } catch (error) {
     if (error.code === 'P2025') {
-      throw new NotFoundError('Chat');
+      return res.status(404).json({ error: 'Chat not found' });
     }
     console.error('Error updating chat:', error);
     res.status(500).json({ error: 'Failed to update chat' });
@@ -282,7 +284,7 @@ const deleteChat = async (req, res) => {
     const { userId } = req.body;
 
     if (!userId) {
-      throw new ValidationError('User ID is required');
+      return res.status(400).json({ error: 'User ID is required' });
     }
 
     // Check if user is a member of this chat
@@ -306,7 +308,7 @@ const deleteChat = async (req, res) => {
     res.status(204).send();
   } catch (error) {
     if (error.code === 'P2025') {
-      throw new NotFoundError('Chat');
+      return res.status(404).json({ error: 'Chat not found' });
     }
     console.error('Error deleting chat:', error);
     res.status(500).json({ error: 'Failed to delete chat' });
@@ -323,7 +325,9 @@ const addChatMember = async (req, res) => {
     const { memberId, addedBy } = req.body;
 
     if (!memberId || !addedBy) {
-      throw new ValidationError('Member ID and added by user ID are required');
+      return res.status(400).json({ 
+        error: 'Member ID and added by user ID are required' 
+      });
     }
 
     // Check if the user adding is a member of the chat
@@ -351,7 +355,7 @@ const addChatMember = async (req, res) => {
     });
 
     if (existingMember) {
-      throw new ConflictError('User is already a member');
+      return res.status(409).json({ error: 'User is already a member' });
     }
 
     // Verify user exists
@@ -361,7 +365,7 @@ const addChatMember = async (req, res) => {
     });
 
     if (!user) {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
 
     const member = await req.prisma.chatMember.create({
@@ -398,7 +402,7 @@ const removeChatMember = async (req, res) => {
     const { removedBy } = req.body;
 
     if (!removedBy) {
-      throw new ValidationError('Removed by user ID is required');
+      return res.status(400).json({ error: 'Removed by user ID is required' });
     }
 
     // Check if the user removing is a member of the chat or removing themselves
@@ -429,7 +433,7 @@ const removeChatMember = async (req, res) => {
     res.status(204).send();
   } catch (error) {
     if (error.code === 'P2025') {
-      throw new NotFoundError('Chat member');
+      return res.status(404).json({ error: 'Chat member not found' });
     }
     console.error('Error removing chat member:', error);
     res.status(500).json({ error: 'Failed to remove chat member' });
@@ -446,7 +450,7 @@ const getChatMembers = async (req, res) => {
     const { userId } = req.query;
 
     if (!userId) {
-      throw new ValidationError('User ID is required');
+      return res.status(400).json({ error: 'User ID is required' });
     }
 
     // Check if user is a member of this chat

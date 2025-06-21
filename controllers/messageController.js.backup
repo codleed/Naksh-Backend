@@ -7,8 +7,6 @@
  * Get messages for a specific chat
  * GET /api/chats/:chatId/messages
  */
-const { asyncHandler } = require('../utils/asyncHandler');
-const { ValidationError, NotFoundError, ConflictError, AuthenticationError } = require('../utils/errors');
 const getChatMessages = async (req, res) => {
   try {
     const { chatId } = req.params;
@@ -17,7 +15,7 @@ const getChatMessages = async (req, res) => {
     const skip = (page - 1) * limit;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if user is a member of the chat
@@ -87,15 +85,15 @@ const sendMessage = async (req, res) => {
     const senderId = req.user?.id;
 
     if (!senderId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     if (!body || body.trim().length === 0) {
-      throw new ValidationError('Message body is required');
+      return res.status(400).json({ error: 'Message body is required' });
     }
 
     if (body.length > 1000) {
-      throw new ValidationError('Message body cannot exceed 1000 characters');
+      return res.status(400).json({ error: 'Message body cannot exceed 1000 characters' });
     }
 
     // Check if user is a member of the chat
@@ -169,7 +167,7 @@ const getMessageById = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const message = await req.prisma.message.findUnique({
@@ -200,7 +198,7 @@ const getMessageById = async (req, res) => {
     });
 
     if (!message) {
-      throw new NotFoundError('Message');
+      return res.status(404).json({ error: 'Message not found' });
     }
 
     // Check if user is a member of the chat
@@ -226,7 +224,7 @@ const markMessageAsDelivered = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if message exists and user has access
@@ -246,7 +244,7 @@ const markMessageAsDelivered = async (req, res) => {
     });
 
     if (!message) {
-      throw new NotFoundError('Message');
+      return res.status(404).json({ error: 'Message not found' });
     }
 
     // Check if user is a member of the chat
@@ -257,7 +255,7 @@ const markMessageAsDelivered = async (req, res) => {
 
     // Don't mark own messages as delivered
     if (message.senderId === userId) {
-      throw new ValidationError('Cannot mark own message as delivered');
+      return res.status(400).json({ error: 'Cannot mark own message as delivered' });
     }
 
     const updatedMessage = await req.prisma.message.update({
@@ -295,7 +293,7 @@ const markMessageAsRead = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if message exists and user has access
@@ -315,7 +313,7 @@ const markMessageAsRead = async (req, res) => {
     });
 
     if (!message) {
-      throw new NotFoundError('Message');
+      return res.status(404).json({ error: 'Message not found' });
     }
 
     // Check if user is a member of the chat
@@ -326,7 +324,7 @@ const markMessageAsRead = async (req, res) => {
 
     // Don't mark own messages as read
     if (message.senderId === userId) {
-      throw new ValidationError('Cannot mark own message as read');
+      return res.status(400).json({ error: 'Cannot mark own message as read' });
     }
 
     const now = new Date();
@@ -368,7 +366,7 @@ const markAllMessagesAsRead = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if user is a member of the chat
@@ -420,7 +418,7 @@ const getUnreadMessageCount = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if user is a member of the chat
@@ -464,7 +462,7 @@ const getTotalUnreadMessageCount = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Get all chats the user is a member of
@@ -517,11 +515,11 @@ const searchChatMessages = async (req, res) => {
     const skip = (page - 1) * limit;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     if (!query || query.trim().length === 0) {
-      throw new ValidationError('Search query is required');
+      return res.status(400).json({ error: 'Search query is required' });
     }
 
     // Check if user is a member of the chat
@@ -592,7 +590,7 @@ const getMessageStatus = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const message = await req.prisma.message.findUnique({
@@ -621,7 +619,7 @@ const getMessageStatus = async (req, res) => {
     });
 
     if (!message) {
-      throw new NotFoundError('Message');
+      return res.status(404).json({ error: 'Message not found' });
     }
 
     // Only sender can check message status

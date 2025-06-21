@@ -7,19 +7,17 @@
  * Register a new device token
  * POST /api/device-tokens
  */
-const { asyncHandler } = require('../utils/asyncHandler');
-const { ValidationError, NotFoundError, ConflictError, AuthenticationError } = require('../utils/errors');
 const registerDeviceToken = async (req, res) => {
   try {
     const { token, platform } = req.body;
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     if (!token) {
-      throw new ValidationError('Device token is required');
+      return res.status(400).json({ error: 'Device token is required' });
     }
 
     // Validate platform if provided
@@ -110,7 +108,7 @@ const registerDeviceToken = async (req, res) => {
     });
   } catch (error) {
     if (error.code === 'P2002') {
-      throw new ConflictError('Device token already exists');
+      return res.status(409).json({ error: 'Device token already exists' });
     }
     console.error('Error registering device token:', error);
     res.status(500).json({ error: 'Failed to register device token' });
@@ -127,7 +125,7 @@ const getUserDeviceTokens = async (req, res) => {
     const { platform } = req.query;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const where = {
@@ -166,7 +164,7 @@ const getDeviceTokenById = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const deviceToken = await req.prisma.deviceToken.findUnique({
@@ -183,7 +181,7 @@ const getDeviceTokenById = async (req, res) => {
     });
 
     if (!deviceToken) {
-      throw new NotFoundError('Device token');
+      return res.status(404).json({ error: 'Device token not found' });
     }
 
     // Check if user owns this token
@@ -209,7 +207,7 @@ const updateDeviceToken = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Validate platform
@@ -223,7 +221,7 @@ const updateDeviceToken = async (req, res) => {
     });
 
     if (!existingToken) {
-      throw new NotFoundError('Device token');
+      return res.status(404).json({ error: 'Device token not found' });
     }
 
     if (existingToken.userId !== userId) {
@@ -266,7 +264,7 @@ const deleteDeviceToken = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if device token exists and user owns it
@@ -275,7 +273,7 @@ const deleteDeviceToken = async (req, res) => {
     });
 
     if (!existingToken) {
-      throw new NotFoundError('Device token');
+      return res.status(404).json({ error: 'Device token not found' });
     }
 
     if (existingToken.userId !== userId) {
@@ -303,11 +301,11 @@ const deleteDeviceTokenByValue = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     if (!token) {
-      throw new ValidationError('Token is required');
+      return res.status(400).json({ error: 'Token is required' });
     }
 
     // Check if device token exists and user owns it
@@ -316,7 +314,7 @@ const deleteDeviceTokenByValue = async (req, res) => {
     });
 
     if (!existingToken) {
-      throw new NotFoundError('Device token');
+      return res.status(404).json({ error: 'Device token not found' });
     }
 
     if (existingToken.userId !== userId) {
@@ -344,7 +342,7 @@ const deleteAllUserDeviceTokens = async (req, res) => {
     const { platform } = req.query;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const where = {
@@ -375,7 +373,7 @@ const getDeviceTokenStats = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const [totalTokens, iosTokens, androidTokens] = await Promise.all([
@@ -416,11 +414,11 @@ const validateDeviceToken = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     if (!token) {
-      throw new ValidationError('Token is required');
+      return res.status(400).json({ error: 'Token is required' });
     }
 
     const deviceToken = await req.prisma.deviceToken.findUnique({
@@ -468,21 +466,21 @@ const bulkRegisterDeviceTokens = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     if (!tokens || !Array.isArray(tokens) || tokens.length === 0) {
-      throw new ValidationError('Tokens array is required');
+      return res.status(400).json({ error: 'Tokens array is required' });
     }
 
     if (tokens.length > 10) {
-      throw new ValidationError('Cannot register more than 10 tokens at once');
+      return res.status(400).json({ error: 'Cannot register more than 10 tokens at once' });
     }
 
     // Validate token objects
     for (const tokenObj of tokens) {
       if (!tokenObj.token) {
-        throw new ValidationError('Each token object must have a token field');
+        return res.status(400).json({ error: 'Each token object must have a token field' });
       }
       if (tokenObj.platform && !['ios', 'android'].includes(tokenObj.platform)) {
         return res.status(400).json({ error: 'Platform must be either "ios" or "android"' });

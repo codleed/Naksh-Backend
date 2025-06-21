@@ -17,9 +17,22 @@ const messageRoutes = require('./routes/messages');
 const moderationRoutes = require('./routes/moderation');
 const deviceTokenRoutes = require('./routes/deviceTokens');
 
+// Import error handling utilities
+const { 
+  errorHandler, 
+  notFoundHandler, 
+  handleUncaughtException, 
+  handleUnhandledRejection, 
+  handleGracefulShutdown 
+} = require('./middleware/errorHandler');
+const { responseMiddleware } = require('./utils/response');
+
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
+
+// Handle uncaught exceptions
+handleUncaughtException();
 
 // Middleware
 app.use(cors({
@@ -35,6 +48,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // Clerk middleware
 app.use(clerkMiddleware());
+
+// Response helpers middleware
+app.use(responseMiddleware);
 
 // Make prisma available to all routes
 app.use((req, res, next) => {
@@ -56,30 +72,48 @@ app.use('/api/moderation', moderationRoutes);
 app.use('/api/device-tokens', deviceTokenRoutes);
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+app.get('/health', async (req, res) => {
+  try {
+    // Check database connection
+    await req.prisma.$queryRaw`SELECT 1`;
+    
+    res.health({
+      database: { status: 'healthy' },
+      server: { status: 'healthy' }
+    });
+  } catch (error) {
+    res.health({
+      database: { status: 'unhealthy', error: error.message },
+      server: { status: 'healthy' }
+    });
+  }
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+// API info endpoint
+app.get('/api', (req, res) => {
+  res.apiInfo({
+    name: 'Naksh API',
+    version: '1.0.0',
+    description: 'Naksh Social Media Platform API Server'
+  });
 });
 
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
+// 404 handler (must be before error handler)
+app.use('*', notFoundHandler);
 
-// Graceful shutdown
-process.on('SIGINT', async () => {
-  console.log('Shutting down gracefully...');
-  await prisma.$disconnect();
-  process.exit(0);
-});
+// Global error handling middleware (must be last)
+app.use(errorHandler);
 
-app.listen(PORT, () => {
+// Start server
+const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
+
+// Handle unhandled promise rejections
+handleUnhandledRejection(server);
+
+// Handle graceful shutdown
+handleGracefulShutdown(server, prisma);
 
 module.exports = app;

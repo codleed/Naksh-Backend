@@ -7,8 +7,6 @@
  * Get all users with pagination and search
  * GET /api/users
  */
-const { asyncHandler } = require('../utils/asyncHandler');
-const { ValidationError, NotFoundError, ConflictError, AuthenticationError } = require('../utils/errors');
 const getAllUsers = async (req, res) => {
   try {
     const { page = 1, limit = 10, search } = req.query;
@@ -100,7 +98,7 @@ const getUserById = async (req, res) => {
     });
 
     if (!user) {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
 
     res.json(user);
@@ -119,7 +117,7 @@ const createUser = async (req, res) => {
     const { username, displayName, email, avatarUrl, bio, isAnonymous = false } = req.body;
 
     if (!username || !email) {
-      throw new ValidationError('Username and email are required');
+      return res.status(400).json({ error: 'Username and email are required' });
     }
 
     const user = await req.prisma.user.create({
@@ -146,7 +144,7 @@ const createUser = async (req, res) => {
     res.status(201).json(user);
   } catch (error) {
     if (error.code === 'P2002') {
-      throw new ConflictError('Username or email already exists');
+      return res.status(409).json({ error: 'Username or email already exists' });
     }
     console.error('Error creating user:', error);
     res.status(500).json({ error: 'Failed to create user' });
@@ -186,10 +184,10 @@ const updateUser = async (req, res) => {
     res.json(user);
   } catch (error) {
     if (error.code === 'P2002') {
-      throw new ConflictError('Username or email already exists');
+      return res.status(409).json({ error: 'Username or email already exists' });
     }
     if (error.code === 'P2025') {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
     console.error('Error updating user:', error);
     res.status(500).json({ error: 'Failed to update user' });
@@ -211,7 +209,7 @@ const deleteUser = async (req, res) => {
     res.status(204).send();
   } catch (error) {
     if (error.code === 'P2025') {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
     console.error('Error deleting user:', error);
     res.status(500).json({ error: 'Failed to delete user' });
@@ -228,7 +226,7 @@ const suspendUser = async (req, res) => {
     const { suspendUntil } = req.body;
 
     if (!suspendUntil) {
-      throw new ValidationError('suspendUntil date is required');
+      return res.status(400).json({ error: 'suspendUntil date is required' });
     }
 
     const user = await req.prisma.user.update({
@@ -244,7 +242,7 @@ const suspendUser = async (req, res) => {
     res.json(user);
   } catch (error) {
     if (error.code === 'P2025') {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
     console.error('Error suspending user:', error);
     res.status(500).json({ error: 'Failed to suspend user' });
@@ -272,7 +270,7 @@ const unsuspendUser = async (req, res) => {
     res.json(user);
   } catch (error) {
     if (error.code === 'P2025') {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
     console.error('Error unsuspending user:', error);
     res.status(500).json({ error: 'Failed to unsuspend user' });

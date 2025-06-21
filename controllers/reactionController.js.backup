@@ -7,8 +7,6 @@
  * Get all reactions for a post with counts
  * GET /api/posts/:postId/reactions
  */
-const { asyncHandler } = require('../utils/asyncHandler');
-const { ValidationError, NotFoundError, ConflictError, AuthenticationError } = require('../utils/errors');
 const getPostReactions = async (req, res) => {
   try {
     const { postId } = req.params;
@@ -20,7 +18,7 @@ const getPostReactions = async (req, res) => {
     });
 
     if (!post) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     // Get reaction counts grouped by type
@@ -93,7 +91,7 @@ const getPostReactionsByType = async (req, res) => {
     // Validate reaction type
     const validTypes = ['LIKE', 'LOL', 'SAD', 'LOVE', 'ANGRY', 'WOW'];
     if (!validTypes.includes(type.toUpperCase())) {
-      throw new ValidationError('Invalid reaction type');
+      return res.status(400).json({ error: 'Invalid reaction type' });
     }
 
     // Check if post exists
@@ -102,7 +100,7 @@ const getPostReactionsByType = async (req, res) => {
     });
 
     if (!post) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     const reactions = await req.prisma.reaction.findMany({
@@ -159,13 +157,13 @@ const addReaction = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Validate reaction type
     const validTypes = ['LIKE', 'LOL', 'SAD', 'LOVE', 'ANGRY', 'WOW'];
     if (!type || !validTypes.includes(type.toUpperCase())) {
-      throw new ValidationError('Valid reaction type is required');
+      return res.status(400).json({ error: 'Valid reaction type is required' });
     }
 
     // Check if post exists
@@ -174,7 +172,7 @@ const addReaction = async (req, res) => {
     });
 
     if (!post) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     // Check if user already has a reaction of this type on this post
@@ -241,14 +239,14 @@ const removeReaction = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // If type is provided, remove specific reaction type
     if (type) {
       const validTypes = ['LIKE', 'LOL', 'SAD', 'LOVE', 'ANGRY', 'WOW'];
       if (!validTypes.includes(type.toUpperCase())) {
-        throw new ValidationError('Invalid reaction type');
+        return res.status(400).json({ error: 'Invalid reaction type' });
       }
 
       const deletedReaction = await req.prisma.reaction.deleteMany({
@@ -260,7 +258,7 @@ const removeReaction = async (req, res) => {
       });
 
       if (deletedReaction.count === 0) {
-        throw new NotFoundError('Reaction');
+        return res.status(404).json({ error: 'Reaction not found' });
       }
     } else {
       // Remove all reactions from this user on this post
@@ -272,7 +270,7 @@ const removeReaction = async (req, res) => {
       });
 
       if (deletedReactions.count === 0) {
-        throw new NotFoundError('No reactions found');
+        return res.status(404).json({ error: 'No reactions found' });
       }
     }
 
@@ -293,7 +291,7 @@ const getUserReaction = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if post exists
@@ -302,7 +300,7 @@ const getUserReaction = async (req, res) => {
     });
 
     if (!post) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     const reaction = await req.prisma.reaction.findFirst({
@@ -350,7 +348,7 @@ const getUserReactions = async (req, res) => {
     });
 
     if (!user) {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
 
     const where = {
@@ -362,7 +360,7 @@ const getUserReactions = async (req, res) => {
     if (type) {
       const validTypes = ['LIKE', 'LOL', 'SAD', 'LOVE', 'ANGRY', 'WOW'];
       if (!validTypes.includes(type.toUpperCase())) {
-        throw new ValidationError('Invalid reaction type');
+        return res.status(400).json({ error: 'Invalid reaction type' });
       }
     }
 
@@ -427,13 +425,13 @@ const toggleReaction = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Validate reaction type
     const validTypes = ['LIKE', 'LOL', 'SAD', 'LOVE', 'ANGRY', 'WOW'];
     if (!type || !validTypes.includes(type.toUpperCase())) {
-      throw new ValidationError('Valid reaction type is required');
+      return res.status(400).json({ error: 'Valid reaction type is required' });
     }
 
     // Check if post exists
@@ -442,7 +440,7 @@ const toggleReaction = async (req, res) => {
     });
 
     if (!post) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     // Check if user already has any reaction on this post
@@ -545,11 +543,11 @@ const getReactionStats = async (req, res) => {
     const { postIds } = req.body;
 
     if (!postIds || !Array.isArray(postIds) || postIds.length === 0) {
-      throw new ValidationError('Array of post IDs is required');
+      return res.status(400).json({ error: 'Array of post IDs is required' });
     }
 
     if (postIds.length > 100) {
-      throw new ValidationError('Maximum 100 post IDs allowed');
+      return res.status(400).json({ error: 'Maximum 100 post IDs allowed' });
     }
 
     const reactionStats = await req.prisma.reaction.groupBy({

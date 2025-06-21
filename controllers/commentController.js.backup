@@ -7,8 +7,6 @@
  * Get all comments for a post with pagination
  * GET /api/posts/:postId/comments
  */
-const { asyncHandler } = require('../utils/asyncHandler');
-const { ValidationError, NotFoundError, ConflictError, AuthenticationError } = require('../utils/errors');
 const getPostComments = async (req, res) => {
   try {
     const { postId } = req.params;
@@ -21,7 +19,7 @@ const getPostComments = async (req, res) => {
     });
 
     if (!post) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     const where = {
@@ -162,7 +160,7 @@ const getCommentById = async (req, res) => {
     });
 
     if (!comment) {
-      throw new NotFoundError('Comment');
+      return res.status(404).json({ error: 'Comment not found' });
     }
 
     res.json(comment);
@@ -183,11 +181,11 @@ const createComment = async (req, res) => {
     const authorId = req.user?.id; // Assuming user is attached to request via auth middleware
 
     if (!body || body.trim().length === 0) {
-      throw new ValidationError('Comment body is required');
+      return res.status(400).json({ error: 'Comment body is required' });
     }
 
     if (!authorId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if post exists
@@ -196,7 +194,7 @@ const createComment = async (req, res) => {
     });
 
     if (!post) {
-      throw new NotFoundError('Post');
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     // If replying to a comment, check if parent comment exists
@@ -210,7 +208,7 @@ const createComment = async (req, res) => {
       });
 
       if (!parentComment) {
-        throw new NotFoundError('Parent comment');
+        return res.status(404).json({ error: 'Parent comment not found' });
       }
     }
 
@@ -272,11 +270,11 @@ const updateComment = async (req, res) => {
     const userId = req.user?.id;
 
     if (!body || body.trim().length === 0) {
-      throw new ValidationError('Comment body is required');
+      return res.status(400).json({ error: 'Comment body is required' });
     }
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if comment exists and user owns it
@@ -288,7 +286,7 @@ const updateComment = async (req, res) => {
     });
 
     if (!existingComment) {
-      throw new NotFoundError('Comment');
+      return res.status(404).json({ error: 'Comment not found' });
     }
 
     if (existingComment.authorId !== userId) {
@@ -338,7 +336,7 @@ const deleteComment = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Check if comment exists and user owns it
@@ -350,7 +348,7 @@ const deleteComment = async (req, res) => {
     });
 
     if (!existingComment) {
-      throw new NotFoundError('Comment');
+      return res.status(404).json({ error: 'Comment not found' });
     }
 
     if (existingComment.authorId !== userId) {
@@ -391,7 +389,7 @@ const getCommentReplies = async (req, res) => {
     });
 
     if (!parentComment) {
-      throw new NotFoundError('Comment');
+      return res.status(404).json({ error: 'Comment not found' });
     }
 
     const replies = await req.prisma.comment.findMany({
@@ -453,7 +451,7 @@ const getUserComments = async (req, res) => {
     });
 
     if (!user) {
-      throw new NotFoundError('User');
+      return res.status(404).json({ error: 'User not found' });
     }
 
     const comments = await req.prisma.comment.findMany({

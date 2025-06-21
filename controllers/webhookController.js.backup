@@ -3,8 +3,6 @@
  * Handles webhook registration, management, and event processing
  */
 
-const { asyncHandler } = require('../utils/asyncHandler');
-const { ValidationError, NotFoundError, ConflictError, AuthenticationError } = require('../utils/errors');
 const crypto = require('crypto');
 const axios = require('axios');
 
@@ -44,19 +42,21 @@ const registerWebhook = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     // Validate required fields
     if (!url || !events || !Array.isArray(events) || events.length === 0) {
-      throw new ValidationError('URL and events array are required');
+      return res.status(400).json({ 
+        error: 'URL and events array are required' 
+      });
     }
 
     // Validate URL format
     try {
       new URL(url);
     } catch (error) {
-      throw new ValidationError('Invalid URL format');
+      return res.status(400).json({ error: 'Invalid URL format' });
     }
 
     // Validate events
@@ -150,7 +150,7 @@ const getWebhooks = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const userWebhooks = Array.from(webhooks.values())
@@ -188,13 +188,13 @@ const getWebhookById = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const webhook = webhooks.get(id);
 
     if (!webhook) {
-      throw new NotFoundError('Webhook');
+      return res.status(404).json({ error: 'Webhook not found' });
     }
 
     if (webhook.userId !== userId) {
@@ -230,13 +230,13 @@ const updateWebhook = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const webhook = webhooks.get(id);
 
     if (!webhook) {
-      throw new NotFoundError('Webhook');
+      return res.status(404).json({ error: 'Webhook not found' });
     }
 
     if (webhook.userId !== userId) {
@@ -248,14 +248,14 @@ const updateWebhook = async (req, res) => {
       try {
         new URL(url);
       } catch (error) {
-        throw new ValidationError('Invalid URL format');
+        return res.status(400).json({ error: 'Invalid URL format' });
       }
     }
 
     // Validate events if provided
     if (events) {
       if (!Array.isArray(events) || events.length === 0) {
-        throw new ValidationError('Events must be a non-empty array');
+        return res.status(400).json({ error: 'Events must be a non-empty array' });
       }
 
       const validEvents = [
@@ -315,13 +315,13 @@ const deleteWebhook = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const webhook = webhooks.get(id);
 
     if (!webhook) {
-      throw new NotFoundError('Webhook');
+      return res.status(404).json({ error: 'Webhook not found' });
     }
 
     if (webhook.userId !== userId) {
@@ -347,13 +347,13 @@ const testWebhook = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const webhook = webhooks.get(id);
 
     if (!webhook) {
-      throw new NotFoundError('Webhook');
+      return res.status(404).json({ error: 'Webhook not found' });
     }
 
     if (webhook.userId !== userId) {
@@ -404,13 +404,13 @@ const getWebhookDeliveries = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const webhook = webhooks.get(id);
 
     if (!webhook) {
-      throw new NotFoundError('Webhook');
+      return res.status(404).json({ error: 'Webhook not found' });
     }
 
     if (webhook.userId !== userId) {
@@ -567,7 +567,7 @@ const getWebhookStats = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      throw new AuthenticationError('Authentication required');
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const userWebhooks = Array.from(webhooks.values())
