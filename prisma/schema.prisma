@@ -50,9 +50,9 @@ enum ReactionType {
 
 // Models
 model User {
-  id              String    @id // Clerk user ID (no default uuid, will be set from Clerk)
-  clerkId         String    @unique @map("clerk_id") // Clerk user ID for reference
-  username        String    @unique
+  id              String    @id @default(uuid()) // Support both Clerk ID and UUID
+  clerkId         String?   @unique @map("clerk_id") // Clerk user ID for reference (nullable for flexibility)
+  username        String?   @unique // Make nullable initially
   displayName     String?   @map("display_name")
   firstName       String?   @map("first_name")
   lastName        String?   @map("last_name")

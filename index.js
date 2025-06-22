@@ -36,9 +36,22 @@ handleUncaughtException();
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3001',
-  credentials: true
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:3001',
+    'http://localhost:5173', // Vite dev server
+    'http://localhost:3000', // Alternative port
+    'http://localhost:4173'  // Vite preview
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+// Make prisma available to all routes (must be before webhook routes)
+app.use((req, res, next) => {
+  req.prisma = prisma;
+  next();
+});
 
 // Raw body parser for webhooks (must be before express.json())
 app.use('/api/webhooks', webhookRoutes);
@@ -51,12 +64,6 @@ app.use(clerkMiddleware());
 
 // Response helpers middleware
 app.use(responseMiddleware);
-
-// Make prisma available to all routes
-app.use((req, res, next) => {
-  req.prisma = prisma;
-  next();
-});
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -108,6 +115,8 @@ app.use(errorHandler);
 const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Webhook endpoint available at: http://localhost:${PORT}/api/webhooks/clerk`);
+  console.log(`Test endpoint available at: http://localhost:${PORT}/api/webhooks/test`);
 });
 
 // Handle unhandled promise rejections

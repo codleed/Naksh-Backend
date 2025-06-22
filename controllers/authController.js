@@ -11,8 +11,9 @@ const { asyncHandler } = require('../utils/asyncHandler');
 const { ValidationError, NotFoundError, ConflictError, AuthenticationError } = require('../utils/errors');
 const getCurrentUser = async (req, res) => {
   try {
+    const auth = typeof req.auth === 'function' ? req.auth() : req.auth;
     const user = await req.prisma.user.findUnique({
-      where: { clerkId: req.auth.userId },
+      where: { clerkId: auth.userId },
       select: {
         id: true,
         clerkId: true,
@@ -58,7 +59,8 @@ const getCurrentUser = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const { username, displayName, bio, isAnonymous } = req.body;
-    const userId = req.auth.userId;
+    const auth = typeof req.auth === 'function' ? req.auth() : req.auth;
+    const userId = auth.userId;
 
     // Validate username uniqueness if provided
     if (username) {
@@ -112,7 +114,8 @@ const updateProfile = async (req, res) => {
 const completeProfile = async (req, res) => {
   try {
     const { username, bio } = req.body;
-    const userId = req.auth.userId;
+    const auth = typeof req.auth === 'function' ? req.auth() : req.auth;
+    const userId = auth.userId;
 
     if (!username) {
       throw new ValidationError('Username is required');
@@ -192,7 +195,8 @@ const checkUsername = async (req, res) => {
  */
 const deleteAccount = async (req, res) => {
   try {
-    const userId = req.auth.userId;
+    const auth = typeof req.auth === 'function' ? req.auth() : req.auth;
+    const userId = auth.userId;
 
     // Soft delete all user's posts
     await req.prisma.post.updateMany({
@@ -224,12 +228,13 @@ const deleteAccount = async (req, res) => {
  */
 const getSession = async (req, res) => {
   try {
-    if (!req.auth?.userId) {
+    const auth = typeof req.auth === 'function' ? req.auth() : req.auth;
+    if (!auth?.userId) {
       return res.json({ authenticated: false });
     }
 
     const user = await req.prisma.user.findUnique({
-      where: { clerkId: req.auth.userId },
+      where: { clerkId: auth.userId },
       select: {
         id: true,
         username: true,

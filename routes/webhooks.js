@@ -2,13 +2,40 @@ const express = require('express');
 const { Webhook } = require('svix');
 const router = express.Router();
 
+// Test endpoint to verify webhook is accessible
+router.get('/test', (req, res) => {
+  res.json({ 
+    message: 'Webhook endpoint is accessible',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    routes: ['GET /api/webhooks/test', 'POST /api/webhooks/clerk']
+  });
+});
+
+// Debug route to list all available routes
+router.get('/', (req, res) => {
+  res.json({
+    message: 'Webhook routes are loaded',
+    availableRoutes: [
+      'GET /api/webhooks/',
+      'GET /api/webhooks/test',
+      'POST /api/webhooks/clerk'
+    ],
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Clerk webhook handler
 router.post('/clerk', express.raw({ type: 'application/json' }), async (req, res) => {
+  console.log('🔔 Webhook received at:', new Date().toISOString());
+  console.log('📋 Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('📦 Body length:', req.body?.length || 0);
+  
   try {
     const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
     
     if (!WEBHOOK_SECRET) {
-      console.error('CLERK_WEBHOOK_SECRET is not set');
+      console.error('❌ CLERK_WEBHOOK_SECRET is not set');
       return res.status(500).json({ error: 'Webhook secret not configured' });
     }
 
@@ -21,13 +48,15 @@ router.post('/clerk', express.raw({ type: 'application/json' }), async (req, res
 
     try {
       evt = wh.verify(payload, headers);
+      console.log('✅ Webhook signature verified successfully');
     } catch (err) {
-      console.error('Webhook signature verification failed:', err);
+      console.error('❌ Webhook signature verification failed:', err.message);
       return res.status(400).json({ error: 'Invalid signature' });
     }
 
     const { type, data } = evt;
-    console.log(`Received Clerk webhook: ${type}`);
+    console.log(`🎯 Received Clerk webhook: ${type}`);
+    console.log('📄 Event data:', JSON.stringify(data, null, 2));
 
     switch (type) {
       case 'user.created':
@@ -55,30 +84,35 @@ router.post('/clerk', express.raw({ type: 'application/json' }), async (req, res
 
 // Handle user creation
 async function handleUserCreated(userData, prisma) {
+  console.log(`👤 Creating user for Clerk ID: ${userData.id}`);
+  
   try {
+    const userCreateData = {
+      clerkId: userData.id,
+      email: userData.email_addresses[0]?.email_address || '',
+      username: userData.username || `user_${userData.id.slice(-8)}`,
+      firstName: userData.first_name,
+      lastName: userData.last_name,
+      displayName: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || null,
+      avatarUrl: userData.image_url,
+      emailVerified: userData.email_addresses[0]?.verification?.status === 'verified',
+      lastSignInAt: userData.last_sign_in_at ? new Date(userData.last_sign_in_at) : null,
+    };
+    
+    console.log('📝 User data to create:', JSON.stringify(userCreateData, null, 2));
+    
     const user = await prisma.user.create({
-      data: {
-        id: userData.id,
-        clerkId: userData.id,
-        email: userData.email_addresses[0]?.email_address || '',
-        username: userData.username || `user_${userData.id.slice(-8)}`,
-        firstName: userData.first_name,
-        lastName: userData.last_name,
-        displayName: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || null,
-        avatarUrl: userData.image_url,
-        emailVerified: userData.email_addresses[0]?.verification?.status === 'verified',
-        lastSignInAt: userData.last_sign_in_at ? new Date(userData.last_sign_in_at) : null,
-      }
+      data: userCreateData
     });
     
-    console.log(`User created in database: ${user.id}`);
+    console.log(`✅ User created in database: ${user.id} (Clerk ID: ${userData.id})`);
   } catch (error) {
     // User might already exist, try to update instead
     if (error.code === 'P2002') {
-      console.log(`User ${userData.id} already exists, updating...`);
+      console.log(`⚠️ User ${userData.id} already exists, updating...`);
       await handleUserUpdated(userData, prisma);
     } else {
-      console.error('Error creating user:', error);
+      console.error('❌ Error creating user:', error);
       throw error;
     }
   }
@@ -100,7 +134,6 @@ async function handleUserUpdated(userData, prisma) {
         lastSignInAt: userData.last_sign_in_at ? new Date(userData.last_sign_in_at) : null,
       },
       create: {
-        id: userData.id,
         clerkId: userData.id,
         email: userData.email_addresses[0]?.email_address || '',
         username: userData.username || `user_${userData.id.slice(-8)}`,
